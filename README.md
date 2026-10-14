@@ -8,7 +8,7 @@ The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up 
 ## Progress
 
 - [x] Data preparation (patient-level split)
-- [x] Baseline model: ResNet18 fine-tuned from ImageNet weights
+- [x] Baseline model: ResNet18 fine-tuned from ImageNet weights (test AUC 0.960)
 - [ ] Grad-CAM to see where the model looks
 - [ ] Export to ONNX and quantize to INT8
 - [ ] Compare speed and size on CPU
@@ -20,7 +20,24 @@ Official test set (624 images):
 
 | Model | AUC | Sensitivity | Specificity | Accuracy |
 |---|---|---|---|---|
-| ResNet18 baseline | - | - | - | - |
+| ResNet18 baseline | 0.960 | 0.995 | 0.684 | 0.878 |
+
+Threshold 0.59 (chosen on validation). Out of 390 pneumonia cases the model missed 2;
+out of 234 normal cases, 74 were flagged as pneumonia.
+
+![Test results](results/test_plots.png)
+
+What I noticed:
+
+- **Validation vs test gap.** Validation AUC was 0.9995 but test AUC was 0.960. Since train and validation are split
+  by patient, this is not leakage — the official test images seem to look different from the training images
+  (distribution shift). This is a real problem for medical AI, e.g. when a model moves to a different hospital.
+- **Too many false positives on test.** The threshold picked on validation doesn't transfer perfectly, so
+  specificity drops to 68%. For screening, missing only 2 sick children is good, but this is something to improve.
+- **Learns very fast.** Validation AUC was already 0.9995 after the first epoch, so the validation set is
+  almost too easy to compare epochs.
+
+Next I will use Grad-CAM to check whether the model actually looks at the lungs.
 
 ## Dataset
 
