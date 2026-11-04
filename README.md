@@ -9,7 +9,7 @@ The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up 
 
 - [x] Data preparation (patient-level split)
 - [x] Baseline model: ResNet18 fine-tuned from ImageNet weights (test AUC 0.960)
-- [ ] Grad-CAM to see where the model looks
+- [x] Grad-CAM to see where the model looks
 - [ ] Export to ONNX and quantize to INT8
 - [ ] Compare speed and size on CPU
 - [ ] Gradio demo
@@ -37,7 +37,24 @@ What I noticed:
 - **Learns very fast.** Validation AUC was already 0.9995 after the first epoch, so the validation set is
   almost too easy to compare epochs.
 
-Next I will use Grad-CAM to check whether the model actually looks at the lungs.
+## Grad-CAM: where does the model look?
+
+`gradcam.py` draws a heatmap of the image areas that pushed the model towards "pneumonia"
+(3 random test images per group, threshold 0.59).
+
+![Grad-CAM examples](results/gradcam_examples.png)
+
+What I noticed:
+
+- In many images the hottest area is **not inside the lungs**: image borders, the black background,
+  the neck, and corners near the "R" marker or scanner text (e.g. "KV59").
+- A common hot spot is the lower right of the image (the patient's left lung base, near the heart and diaphragm).
+  Sometimes this is inside the lung, sometimes it is below it.
+- This suggests the model may partly use **shortcuts** (things that differ between images but are not the disease),
+  which could also explain the many false positives on the test set.
+
+Limits: this is only 11 images, the Grad-CAM map is very coarse (7x7 grid for ResNet18), and I am not a radiologist,
+so this is a warning sign to check, not a proof.
 
 ## Dataset
 
