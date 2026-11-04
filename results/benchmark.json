@@ -1,0 +1,20 @@
+[
+  {
+    "model": "PyTorch FP32",
+    "size_mb": 44.8,
+    "ms_per_image": 97.6,
+    "test_auc": 0.9601
+  },
+  {
+    "model": "ONNX FP32",
+    "size_mb": 44.7,
+    "ms_per_image": 62.2,
+    "test_auc": 0.9601
+  },
+  {
+    "model": "ONNX INT8",
+    "size_mb": 11.3,
+    "ms_per_image": 41.0,
+    "test_auc": 0.963
+  }
+]

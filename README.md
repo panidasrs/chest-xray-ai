@@ -10,8 +10,8 @@ The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up 
 - [x] Data preparation (patient-level split)
 - [x] Baseline model: ResNet18 fine-tuned from ImageNet weights (test AUC 0.960)
 - [x] Grad-CAM to see where the model looks
-- [ ] Export to ONNX and quantize to INT8
-- [ ] Compare speed and size on CPU
+- [x] Export to ONNX and quantize to INT8
+- [x] Compare speed and size on CPU
 - [ ] Gradio demo
 
 ## Results
@@ -55,6 +55,23 @@ What I noticed:
 
 Limits: this is only 11 images, the Grad-CAM map is very coarse (7x7 grid for ResNet18), and I am not a radiologist,
 so this is a warning sign to check, not a proof.
+
+## ONNX + INT8 on CPU
+
+`export_onnx.py` converts the model to ONNX and makes an INT8 version with static quantization
+(calibrated on 100 validation images). `benchmark.py` measures each version on CPU
+(batch size 1, average of 100 runs) and re-checks test AUC.
+
+| Version | Size | Time per image | Test AUC |
+|---|---|---|---|
+| PyTorch FP32 | 44.8 MB | 97.6 ms | 0.960 |
+| ONNX FP32 | 44.7 MB | 62.2 ms | 0.960 |
+| ONNX INT8 | 11.3 MB | 41.0 ms | 0.963 |
+
+Measured on a Google Colab CPU runtime.
+
+- INT8 is **4x smaller** and **2.4x faster** than PyTorch (1.5x faster than ONNX FP32).
+- Test AUC did not drop. The small increase (0.960 → 0.963) is just rounding noise, not a real improvement.
 
 ## Dataset
 
