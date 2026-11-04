@@ -3,6 +3,8 @@
 A ResNet18 model that classifies pediatric chest X-rays as **normal** or **pneumonia**.
 The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up a small web demo.
 
+**Live demo:** [huggingface.co/spaces/Mhiu/chest-xray-ai](https://huggingface.co/spaces/Mhiu/chest-xray-ai) (INT8 ONNX model, upload an X-ray)
+
 **This is a student project for learning. It is not for medical use.**
 
 ## Progress
@@ -12,7 +14,7 @@ The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up 
 - [x] Grad-CAM to see where the model looks
 - [x] Export to ONNX and quantize to INT8
 - [x] Compare speed and size on CPU
-- [ ] Gradio demo
+- [x] Gradio demo on Hugging Face Spaces
 
 ## Results
 
