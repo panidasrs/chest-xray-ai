@@ -1,8 +1,10 @@
-# Fine-tune a pretrained ResNet18 to classify chest X-rays (normal vs pneumonia).
+# Fine-tune a pretrained CNN to classify chest X-rays (normal vs pneumonia).
 #
 # Usage:
-#   python train.py               (default: 8 epochs)
+#   python train.py               (baseline: ResNet18, stretch, 8 epochs -> best_model.pt)
 #   python train.py --epochs 1    (quick test)
+#   python train.py --arch efficientnet_b0 --resize pad --name effnet_pad
+#       (saves models/effnet_pad.pt and results/effnet_pad_history.csv)
 
 import argparse
 from pathlib import Path
@@ -17,23 +19,39 @@ from torchvision import models, transforms
 
 IMG_SIZE = 224
 
-# X-rays are grayscale, but ResNet expects 3 channels, so we copy the gray channel 3 times.
-# We don't flip left/right because the heart is always on the left side.
-train_tf = transforms.Compose([
-    transforms.Grayscale(num_output_channels=3),
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.RandomRotation(10),
-    transforms.ColorJitter(brightness=0.1, contrast=0.1),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+NORMALIZE = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
-eval_tf = transforms.Compose([
-    transforms.Grayscale(num_output_channels=3),
-    transforms.Resize((IMG_SIZE, IMG_SIZE)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-])
+
+def pad_to_square(img):
+    # Add black borders so the image becomes square without squashing it.
+    # (EDA showed normal and pneumonia images have different shapes, so stretching
+    # them to a square distorts the two classes differently.)
+    side = max(img.size)
+    square = Image.new(img.mode, (side, side))
+    square.paste(img, ((side - img.size[0]) // 2, (side - img.size[1]) // 2))
+    return square
+
+
+def get_transforms(resize="stretch"):
+    # X-rays are grayscale, but the CNNs expect 3 channels, so we copy the gray channel 3 times.
+    # We don't flip left/right because the heart is always on the left side.
+    first = [transforms.Grayscale(num_output_channels=3)]
+    if resize == "pad":
+        first.append(transforms.Lambda(pad_to_square))
+    first.append(transforms.Resize((IMG_SIZE, IMG_SIZE)))
+
+    train_tf = transforms.Compose(first + [
+        transforms.RandomRotation(10),
+        transforms.ColorJitter(brightness=0.1, contrast=0.1),
+        transforms.ToTensor(),
+        NORMALIZE,
+    ])
+    eval_tf = transforms.Compose(first + [transforms.ToTensor(), NORMALIZE])
+    return train_tf, eval_tf
+
+
+# default transforms (used by evaluate.py, gradcam.py, export_onnx.py, benchmark.py)
+train_tf, eval_tf = get_transforms("stretch")
 
 
 class XrayDataset(Dataset):
@@ -50,9 +68,16 @@ class XrayDataset(Dataset):
         return self.transform(img), torch.tensor(self.labels[i], dtype=torch.float32)
 
 
-def make_model():
-    model = models.resnet18(weights="IMAGENET1K_V1")
-    model.fc = nn.Linear(model.fc.in_features, 1)  # 1 output: score for pneumonia
+def make_model(arch="resnet18"):
+    # Replace the last layer so the model gives 1 output: a score for pneumonia
+    if arch == "resnet18":
+        model = models.resnet18(weights="IMAGENET1K_V1")
+        model.fc = nn.Linear(model.fc.in_features, 1)
+    elif arch == "efficientnet_b0":
+        model = models.efficientnet_b0(weights="IMAGENET1K_V1")
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, 1)
+    else:
+        raise ValueError(f"unknown arch: {arch}")
     return model
 
 
@@ -72,7 +97,20 @@ def main():
     parser.add_argument("--epochs", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--arch", default="resnet18", choices=["resnet18", "efficientnet_b0"])
+    parser.add_argument("--resize", default="stretch", choices=["stretch", "pad"])
+    parser.add_argument("--name", default=None, help="run name; if not set, saves best_model.pt like before")
     args = parser.parse_args()
+
+    if args.name:
+        Path("models").mkdir(exist_ok=True)
+        model_path = f"models/{args.name}.pt"
+        history_path = f"results/{args.name}_history.csv"
+    else:
+        model_path = "best_model.pt"
+        history_path = "results/history.csv"
+    print(f"arch={args.arch}, resize={args.resize}, saving to {model_path}")
+    train_tf, eval_tf = get_transforms(args.resize)
 
     torch.manual_seed(42)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -85,7 +123,7 @@ def main():
     train_loader = DataLoader(XrayDataset(train_df, train_tf), batch_size=args.batch_size, shuffle=True, num_workers=2)
     val_loader = DataLoader(XrayDataset(val_df, eval_tf), batch_size=args.batch_size, num_workers=2)
 
-    model = make_model().to(device)
+    model = make_model(args.arch).to(device)
 
     # There are ~3x more pneumonia images than normal ones.
     # pos_weight makes mistakes on the normal class count more, to balance this.
@@ -116,11 +154,11 @@ def main():
         # keep the model from the epoch with the best validation AUC
         if val_auc > best_auc:
             best_auc = val_auc
-            torch.save(model.state_dict(), "best_model.pt")
-            print("  saved best_model.pt")
+            torch.save(model.state_dict(), model_path)
+            print(f"  saved {model_path}")
 
     Path("results").mkdir(exist_ok=True)
-    pd.DataFrame(history).to_csv("results/history.csv", index=False)
+    pd.DataFrame(history).to_csv(history_path, index=False)
     print(f"Done. Best val AUC: {best_auc:.4f}")
 
 

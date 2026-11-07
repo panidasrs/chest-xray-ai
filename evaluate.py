@@ -4,8 +4,11 @@
 # (choosing it on the test set would be cheating).
 #
 # Usage:
-#   python evaluate.py
+#   python evaluate.py                       (baseline: best_model.pt)
+#   python evaluate.py --arch efficientnet_b0 --resize pad --name effnet_pad
+#       (loads models/effnet_pad.pt, saves results/effnet_pad_test_results.json)
 
+import argparse
 import json
 from pathlib import Path
 
@@ -16,12 +19,26 @@ import torch
 from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix, roc_auc_score, roc_curve
 from torch.utils.data import DataLoader
 
-from train import XrayDataset, eval_tf, make_model, predict
+from train import XrayDataset, get_transforms, make_model, predict
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--arch", default="resnet18", choices=["resnet18", "efficientnet_b0"])
+parser.add_argument("--resize", default="stretch", choices=["stretch", "pad"])
+parser.add_argument("--name", default=None)
+args = parser.parse_args()
+
+if args.name:
+    model_path = f"models/{args.name}.pt"
+    prefix = f"results/{args.name}_"
+else:
+    model_path = "best_model.pt"
+    prefix = "results/"
+_, eval_tf = get_transforms(args.resize)
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-model = make_model()
-model.load_state_dict(torch.load("best_model.pt", map_location=device))
+model = make_model(args.arch)
+model.load_state_dict(torch.load(model_path, map_location=device))
 model.to(device)
 
 df = pd.read_csv("splits.csv")
@@ -40,6 +57,8 @@ test_preds = (np.array(test_probs) >= threshold).astype(int)
 tn, fp, fn, tp = confusion_matrix(test_labels, test_preds).ravel()
 
 results = {
+    "arch": args.arch,
+    "resize": args.resize,
     "threshold": round(threshold, 4),
     "test_auc": round(roc_auc_score(test_labels, test_probs), 4),
     "sensitivity": round(tp / (tp + fn), 4),  # of the sick children, how many we caught
@@ -50,7 +69,7 @@ results = {
 print(json.dumps(results, indent=2))
 
 Path("results").mkdir(exist_ok=True)
-with open("results/test_results.json", "w") as f:
+with open(prefix + "test_results.json", "w") as f:
     json.dump(results, f, indent=2)
 
 # Plots: ROC curve + confusion matrix
@@ -69,5 +88,5 @@ ConfusionMatrixDisplay.from_predictions(
 ax[1].set_title(f"Confusion matrix (threshold {threshold:.2f})")
 
 plt.tight_layout()
-plt.savefig("results/test_plots.png", dpi=150)
-print("Saved results/test_results.json and results/test_plots.png")
+plt.savefig(prefix + "test_plots.png", dpi=150)
+print(f"Saved {prefix}test_results.json and {prefix}test_plots.png")
