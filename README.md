@@ -9,6 +9,20 @@ The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up 
 
 **This is a student project for learning. It is not for medical use.**
 
+## Problem
+
+Pneumonia is one of the leading causes of death in children under 5 worldwide (WHO). A chest X-ray is the usual
+way to confirm it, but reading X-rays needs a radiologist, and in many hospitals there are not enough of them,
+so images can wait a long time before anyone looks at them.
+
+This project builds an image classifier that looks at a pediatric chest X-ray and outputs the probability of
+**pneumonia** vs **normal**. The idea is to use it as a **triage / second-reader tool**: X-rays the model flags as
+likely pneumonia can be moved to the front of the radiologist's queue. The model never makes the final decision.
+
+Because missing a sick child is worse than a false alarm, I focus on **sensitivity** (how many pneumonia cases are
+caught) together with **specificity** and AUC, not only accuracy. I also make the model small and fast enough to run
+on an ordinary CPU (ONNX + INT8), since many clinics don't have a GPU.
+
 ## Progress
 
 - [x] Data preparation (patient-level split) and EDA
@@ -173,6 +187,31 @@ Then open http://localhost:7860 and upload a chest X-ray.
 
 Without Docker: put `model_int8.onnx` in `demo/`, then `cd demo`, `pip install -r requirements.txt`, `python app.py`.
 
+### 4. Deploy to the cloud (Hugging Face Spaces)
+
+The live demo runs on [Hugging Face Spaces](https://huggingface.co/spaces/Mhiu/chest-xray-ai). To deploy your own copy:
+
+1. Create a new Space on huggingface.co (SDK: **Gradio**; the free tier uses ZeroGPU hardware).
+2. Upload `demo/app.py`, `demo/requirements.txt` and `model_int8.onnx` (from `export_onnx.py`).
+3. The Space builds automatically and gives you a public URL.
+
+`demo/app.py` works both on Spaces (it uses the `spaces` package for ZeroGPU when it is installed)
+and locally / in Docker (without it). The model always runs on CPU with ONNX Runtime.
+
+## For reviewers
+
+| Criterion | Where to look |
+|---|---|
+| Problem description | [Problem](#problem) section above |
+| EDA | `notebooks/eda.ipynb` and the [EDA](#eda) section |
+| Model training + tuning | `notebooks/compare_models_colab.ipynb`, `notebooks/tune_lr_colab.ipynb`, [Model comparison](#model-comparison) |
+| Training script | `train.py` (+ `prepare_data.py`, `evaluate.py`) |
+| Reproducibility | `prepare_data.py` downloads the data from Kaggle; Colab notebooks run end to end |
+| Model deployment | `demo/app.py` (Gradio web service) |
+| Dependencies + virtual env | `requirements.txt`, `demo/requirements.txt`, [How to run](#how-to-run) step 1 |
+| Containerization | `Dockerfile`, [How to run](#how-to-run) step 3 |
+| Cloud deployment | Live URL above + screenshots, [How to run](#how-to-run) step 4 |
+
 ## Files
 
 - `prepare_data.py` – finds all images and splits them into train / val / test by patient
@@ -182,5 +221,5 @@ Without Docker: put `model_int8.onnx` in `demo/`, then `cd demo`, `pip install -
 - `export_onnx.py` / `benchmark.py` – ONNX + INT8 export and CPU benchmark
 - `demo/app.py` – Gradio web app (same code as the Hugging Face Space)
 - `Dockerfile` – container for the demo
-- `notebooks/` – Colab notebooks (training, EDA, Grad-CAM, ONNX benchmark, model comparison)
+- `notebooks/` – Colab notebooks (training, EDA, Grad-CAM, ONNX benchmark, model comparison, learning-rate tuning)
 - `results/` – metrics and plots
