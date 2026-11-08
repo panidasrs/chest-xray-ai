@@ -28,7 +28,7 @@ on an ordinary CPU (ONNX + INT8), since many clinics don't have a GPU.
 - [x] Data preparation (patient-level split) and EDA
 - [x] Baseline model: ResNet18 fine-tuned from ImageNet weights (test AUC 0.960)
 - [x] Grad-CAM to see where the model looks
-- [x] Compare 4 models (ResNet18 / EfficientNet-B0, stretch / pad)
+- [x] Compare 4 models (ResNet18 / EfficientNet-B0, stretch / pad) and tune the learning rate
 - [x] Export to ONNX and quantize to INT8
 - [x] Compare speed and size on CPU
 - [x] Gradio demo on Hugging Face Spaces
@@ -91,6 +91,23 @@ What I noticed:
   class mix in the test set, this is a more likely reason why specificity is only ~0.68.
 - I kept the **ResNet18 baseline** for the demo: the others are not clearly better, and Grad-CAM and the
   ONNX/INT8 work were already done on it.
+
+### Learning-rate tuning
+
+ResNet18 + stretch, everything else the same
+([`notebooks/tune_lr_colab.ipynb`](notebooks/tune_lr_colab.ipynb)):
+
+| Learning rate | Best val AUC | Test AUC | Sensitivity | Specificity | FN | FP | Threshold |
+|---|---|---|---|---|---|---|---|
+| 3e-5 | 0.9994 | 0.940 | 1.000 | 0.560 | 0 | 103 | 0.40 |
+| **1e-4 (baseline)** | 0.9995 | 0.960 | 0.995 | 0.684 | 2 | 74 | 0.59 |
+| 3e-4 | 0.9995 | 0.971 | 0.997 | 0.586 | 1 | 97 | 0.49 |
+
+- On validation all three learning rates look the same (AUC 0.9994–0.9995), so validation cannot pick a winner.
+- On test, 1e-4 has the best balance: the highest specificity (fewest false positives) while still missing only 2
+  pneumonia cases. 3e-4 has a higher AUC but 23 more false positives at its threshold; 3e-5 learns too slowly.
+- I did not choose the learning rate by looking at the test set (that would be cheating). I keep the baseline
+  (1e-4), and the test numbers here are only reported to show how sensitive the results are to this setting.
 
 ## Grad-CAM: where does the model look?
 
