@@ -1,0 +1,5 @@
+run,arch,resize,test_auc,sensitivity,specificity,accuracy,fn,fp,threshold
+baseline,resnet18,stretch,0.9602,0.9949,0.6838,0.8782,2,74,0.5919
+resnet18_pad,resnet18,pad,0.9686,0.9974,0.6667,0.8734,1,78,0.2625
+effnet_stretch,efficientnet_b0,stretch,0.9718,0.9923,0.6667,0.8702,3,78,0.2716
+effnet_pad,efficientnet_b0,pad,0.9632,0.9974,0.6923,0.8830,1,72,0.6329

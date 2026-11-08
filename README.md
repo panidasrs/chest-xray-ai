@@ -9,9 +9,10 @@ The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up 
 
 ## Progress
 
-- [x] Data preparation (patient-level split)
+- [x] Data preparation (patient-level split) and EDA
 - [x] Baseline model: ResNet18 fine-tuned from ImageNet weights (test AUC 0.960)
 - [x] Grad-CAM to see where the model looks
+- [x] Compare 4 models (ResNet18 / EfficientNet-B0, stretch / pad)
 - [x] Export to ONNX and quantize to INT8
 - [x] Compare speed and size on CPU
 - [x] Gradio demo on Hugging Face Spaces
@@ -38,6 +39,42 @@ What I noticed:
   specificity drops to 68%. For screening, missing only 2 sick children is good, but this is something to improve.
 - **Learns very fast.** Validation AUC was already 0.9995 after the first epoch, so the validation set is
   almost too easy to compare epochs.
+
+## EDA
+
+See [`notebooks/eda.ipynb`](notebooks/eda.ipynb). Main findings:
+
+- Train/val have about 74% pneumonia, but the test set only 62.5%.
+- Normal images are much bigger (median 1654x1323) than pneumonia images (median 1160x776) and have a different
+  shape (width/height 1.2 vs 1.5). Stretching every image to 224x224 squashes the two classes differently,
+  so the model could learn the image shape instead of the disease.
+- Mean brightness is almost the same for both classes (123.0 vs 122.7).
+
+## Model comparison
+
+To test the image-shape idea from the EDA, I trained 3 more models
+([`notebooks/compare_models_colab.ipynb`](notebooks/compare_models_colab.ipynb)).
+`pad` adds black borders to make the image square instead of stretching it.
+Official test set, threshold chosen on validation:
+
+| Run | Model | Resize | AUC | Sensitivity | Specificity | FN | FP | Threshold |
+|---|---|---|---|---|---|---|---|---|
+| baseline | ResNet18 | stretch | 0.960 | 0.995 | 0.684 | 2 | 74 | 0.59 |
+| resnet18_pad | ResNet18 | pad | 0.969 | 0.997 | 0.667 | 1 | 78 | 0.26 |
+| effnet_stretch | EfficientNet-B0 | stretch | 0.972 | 0.992 | 0.667 | 3 | 78 | 0.27 |
+| effnet_pad | EfficientNet-B0 | pad | 0.963 | 0.997 | 0.692 | 1 | 72 | 0.63 |
+
+What I noticed:
+
+- **All 4 models are very close** (AUC 0.960–0.972). With one training run each and 624 test images,
+  differences of about 0.01 are probably noise.
+- **Padding did not fix the false positives.** FP stayed at 72–78 for every model, and padding helped ResNet18's AUC
+  but hurt EfficientNet's. So the image-shape shortcut is not the main reason for the low specificity.
+- **The threshold is unstable.** The best threshold on validation jumps between 0.26 and 0.63 across models,
+  because validation AUC is almost 1.0 (many thresholds look equally good there). Together with the different
+  class mix in the test set, this is a more likely reason why specificity is only ~0.68.
+- I kept the **ResNet18 baseline** for the demo: the others are not clearly better, and Grad-CAM and the
+  ONNX/INT8 work were already done on it.
 
 ## Grad-CAM: where does the model look?
 

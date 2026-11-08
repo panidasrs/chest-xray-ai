@@ -1,0 +1,13 @@
+{
+  "arch": "efficientnet_b0",
+  "resize": "stretch",
+  "threshold": 0.2716,
+  "test_auc": 0.9718,
+  "sensitivity": 0.9923,
+  "specificity": 0.6667,
+  "accuracy": 0.8702,
+  "tp": 387,
+  "fn": 3,
+  "tn": 156,
+  "fp": 78
+}

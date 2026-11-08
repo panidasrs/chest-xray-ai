@@ -1,0 +1,13 @@
+{
+  "arch": "resnet18",
+  "resize": "pad",
+  "threshold": 0.2625,
+  "test_auc": 0.9686,
+  "sensitivity": 0.9974,
+  "specificity": 0.6667,
+  "accuracy": 0.8734,
+  "tp": 389,
+  "fn": 1,
+  "tn": 156,
+  "fp": 78
+}
