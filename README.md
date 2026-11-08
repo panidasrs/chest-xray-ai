@@ -5,6 +5,8 @@ The plan is to make it run fast on a normal laptop CPU (ONNX + INT8) and put up 
 
 **Live demo:** [huggingface.co/spaces/Mhiu/chest-xray-ai](https://huggingface.co/spaces/Mhiu/chest-xray-ai) (INT8 ONNX model, upload an X-ray)
 
+<img src="results/demo_screenshot1.png" width="49%"> <img src="results/demo_screenshot2.png" width="49%">
+
 **This is a student project for learning. It is not for medical use.**
 
 ## Progress
