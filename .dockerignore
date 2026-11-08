@@ -1,0 +1,11 @@
+.git
+data
+chest_xray
+runs
+models
+results
+notebooks
+*.pt
+*.onnx
+*.zip
+__pycache__

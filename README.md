@@ -130,20 +130,55 @@ Some things I had to handle:
 
 ## How to run
 
-Easiest: open `notebooks/train_colab.ipynb` in Google Colab with a GPU.
+### 1. Set up the environment
 
-Or on your own computer:
+Python 3.10+ (tested with 3.12). Create a virtual environment so the packages don't mix with your other projects:
 
-```
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python prepare_data.py     # download data + make splits.csv
-python train.py            # train, saves best_model.pt
-python evaluate.py         # test results -> results/
 ```
+
+### 2. Train and evaluate
+
+A GPU is recommended. The easiest way is Google Colab: open `notebooks/train_colab.ipynb` with a T4 GPU.
+On your own computer:
+
+```bash
+python prepare_data.py     # download data from Kaggle + make splits.csv
+python train.py            # train ResNet18, saves best_model.pt
+python evaluate.py         # test results -> results/
+python gradcam.py          # Grad-CAM examples -> results/gradcam_examples.png
+python export_onnx.py      # model_fp32.onnx + model_int8.onnx
+python benchmark.py        # speed / size / AUC on CPU -> results/benchmark.json
+```
+
+Other models: `python train.py --arch efficientnet_b0 --resize pad --name effnet_pad`
+then `python evaluate.py --arch efficientnet_b0 --resize pad --name effnet_pad`.
+
+### 3. Run the demo with Docker
+
+The demo only needs the INT8 ONNX model, which the Docker build downloads from the Hugging Face Space,
+so you don't have to train anything first.
+
+```bash
+docker build -t chest-xray-demo .
+docker run -p 7860:7860 chest-xray-demo
+```
+
+Then open http://localhost:7860 and upload a chest X-ray.
+
+Without Docker: put `model_int8.onnx` in `demo/`, then `cd demo`, `pip install -r requirements.txt`, `python app.py`.
 
 ## Files
 
 - `prepare_data.py` – finds all images and splits them into train / val / test by patient
-- `train.py` – dataset, model and training loop
+- `train.py` – dataset, model and training loop (`--arch`, `--resize`, `--name`)
 - `evaluate.py` – picks a threshold on validation, then tests on the test set
+- `gradcam.py` – heatmaps of where the model looks
+- `export_onnx.py` / `benchmark.py` – ONNX + INT8 export and CPU benchmark
+- `demo/app.py` – Gradio web app (same code as the Hugging Face Space)
+- `Dockerfile` – container for the demo
+- `notebooks/` – Colab notebooks (training, EDA, Grad-CAM, ONNX benchmark, model comparison)
 - `results/` – metrics and plots
